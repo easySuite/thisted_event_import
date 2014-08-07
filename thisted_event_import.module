@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Thisted event import feature.
+ */
+
+include_once 'thisted_event_import.features.inc';
