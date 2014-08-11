@@ -12,21 +12,39 @@ include_once 'thisted_event_import.features.inc';
 function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item) {
   foreach ($source->importer->processor->config['mappings'] as $map_key => $map) {
     $xpathparser_key = $map_key + 1;
-    if ($map['target'] == 'status') {
-      $entity->status = ($item['xpathparser:' . $xpathparser_key]) ? 0 : 1;
-    }
-    if ($map['target'] == 'field_ding_event_price') {
-      // Get only price, without text.
-      $price_dirty = $item['xpathparser:' . $xpathparser_key];
-      preg_match('~\d+~', $price_dirty, $price);
-      $price_clear = ($price) ? (int) $price[0] : 0;
-      $entity->field_ding_event_price['und'][0]['value'] = $price_clear;
+    switch ($map['target']) {
+      case 'status':
+        $entity->status = ($item['xpathparser:' . $xpathparser_key]) ? 0 : 1;
 
-      // If we have price, push event to place2book.
-      $entity->place2book['maintain_copy'] = (!empty($price_dirty)) ? 1 : 0;
-      $entity->place2book['kultunaut_export'] = 0;
-      $entity->place2book['passive'] = 0;
-      $entity->capacity = 0;
+      case 'field_ding_event_price':
+        // Get only price, without text.
+        $price_dirty = $item['xpathparser:' . $xpathparser_key];
+        preg_match('~\d+~', $price_dirty, $price);
+        $price_clear = ($price) ? (int) $price[0] : 0;
+        $entity->field_ding_event_price['und'][0]['value'] = $price_clear;
+
+        // If we have price, push event to place2book.
+        $entity->place2book['maintain_copy'] = (!empty($price_dirty)) ? 1 : 0;
+        $entity->place2book['kultunaut_export'] = 0;
+        $entity->place2book['passive'] = 0;
+        $entity->capacity = 0;
+        $entity->place2book['maintain_copy'] = 0;
+    }
+  }
+}
+
+function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $item, $entity_id) {
+  if ($entity->type == 'ding_event') {
+    foreach ($source->importer->processor->config['mappings'] as $key => $map) {
+      if ($map['target'] == 'field_') {
+
+      }
+      $inserted = db_insert('event_organizer')
+        ->fields(array(
+          'event_id' => $entity->nid,
+//          'organizer_id' =>
+        ));
+
     }
   }
 }

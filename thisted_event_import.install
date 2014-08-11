@@ -1,0 +1,54 @@
+<?php
+/**
+ * @file
+ * Code for module installation.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function thisted_event_import_schema() {
+  $schema['event_organizer'] = array(
+    'description' => t('On event import will be saved event nid with corresponding organizer id.'),
+    'fields' => array(
+      'event_nid' => array(
+        'description' => t('Event node id.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'organizer_id' => array(
+        'description' => t('Organizer id.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+  );
+  $schema['library_organizer'] = array(
+    'description' => t('Mapping of library with organizer id.'),
+    'fields' => array(
+      'library_id' => array(
+        'description' => t('Library id.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'organizer_id' => array(
+        'description' => t('Organizer id.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function thisted_event_import_install() {
+  drupal_install_schema('thisted_event_import');
+}
