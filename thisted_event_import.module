@@ -7,6 +7,42 @@
 include_once 'thisted_event_import.features.inc';
 
 /**
+ * Implements hook_menu().
+ */
+function thisted_event_import_menu() {
+  $items['admin/config/ting/events_import'] = array(
+    'title' => 'Map organizer',
+    'description' => 'Map organizer with library.',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('thisted_event_import_admin_form'),
+    'file' => 'thisted_event_import.admin.inc',
+  );
+
+  $items['admin/config/ting/events_import/add'] = array(
+    'title' => 'Add organizer mapping.',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('thisted_event_import_add_mapping'),
+    'file' => 'thisted_event_import.admin.inc',
+    'type' => MENU_LOCAL_ACTION,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_feeds_after_parse().
+ */
+function thisted_event_import_feeds_after_parse(FeedsSource $source, FeedsParserResult $result) {
+  foreach ($result->items as $key => $value) {
+    if ($value['xpathparser:15'] === 'true') {
+      unset($result->items[$key]);
+    }
+  }
+}
+
+/**
  * Implements hook_feeds_presave().
  */
 function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item) {
@@ -15,6 +51,7 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
     switch ($map['target']) {
       case 'status':
         $entity->status = ($item['xpathparser:' . $xpathparser_key]) ? 0 : 1;
+        break;
 
       case 'field_ding_event_price':
         // Get only price, without text.
@@ -22,29 +59,36 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
         preg_match('~\d+~', $price_dirty, $price);
         $price_clear = ($price) ? (int) $price[0] : 0;
         $entity->field_ding_event_price['und'][0]['value'] = $price_clear;
+        break;
 
-        // If we have price, push event to place2book.
-        $entity->place2book['maintain_copy'] = (!empty($price_dirty)) ? 1 : 0;
-        $entity->place2book['kultunaut_export'] = 0;
-        $entity->place2book['passive'] = 0;
-        $entity->capacity = 0;
-        $entity->place2book['maintain_copy'] = 0;
+      case 'field_place2book_tickets':
+        // push event to place2book.
+        if ($item['xpathparser:' . $xpathparser_key]) {
+          $entity->place2book['maintain_copy'] = 1;
+          $entity->place2book['kultunaut_export'] = 0;
+          $entity->place2book['passive'] = 0;
+          $entity->capacity = 0;
+          $entity->place2book['maintain_copy'] = 0;
+        }
+        break;
     }
   }
 }
 
+/**
+ * Implements hook_feeds_after_save().
+ */
 function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $item, $entity_id) {
   if ($entity->type == 'ding_event') {
     foreach ($source->importer->processor->config['mappings'] as $key => $map) {
-      if ($map['target'] == 'field_') {
-
+      if ($map['target'] == 'field_organizer_id') {
+        $inserted = db_insert('event_organizer')
+          ->fields(array(
+            'event_nid' => $entity->nid,
+            'organizer_id' => $item[$map['source']],
+          ))
+          ->execute();
       }
-      $inserted = db_insert('event_organizer')
-        ->fields(array(
-          'event_id' => $entity->nid,
-//          'organizer_id' =>
-        ));
-
     }
   }
 }

@@ -21,7 +21,7 @@ function thisted_event_import_schema() {
         'description' => t('Organizer id.'),
         'type' => 'int',
         'unsigned' => TRUE,
-        'not null' => TRUE,
+        'not null' => FALSE,
       ),
     ),
   );
