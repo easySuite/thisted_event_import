@@ -163,7 +163,7 @@ function thisted_event_import_not_mapped_organizer() {
     foreach ($result as $organizer_id) {
       $organisers[$organizer_id] = $organizer_id;
     }
-    drupal_set_message(t('You have not mapped organizers.'), 'warning');
+    drupal_set_message(t('You have not mapped organizers:') . ' ' . $amount_not_mapped_organizers, 'warning');
   }
 
   return $organisers;
