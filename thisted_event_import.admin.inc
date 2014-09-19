@@ -136,7 +136,8 @@ function thisted_events_import_get_libraries() {
     ->fields('n', array('nid', 'title'))
     ->condition('n.type', 'ding_library', '=');
 
-  $result = $query->execute()
+  $result = $query
+    ->execute()
     ->fetchAllKeyed();
 
   return $result;
@@ -152,7 +153,9 @@ function thisted_event_import_not_mapped_organizer() {
   $query->fields('eo', array('organizer_id'))
     ->distinct()
     ->condition('lo.organizer_id', NULL, 'is');
-  $result = $query->execute()->fetchCol();
+  $result = $query
+    ->execute()
+    ->fetchCol();
 
   $organisers = array();
   $amount_not_mapped_organizers = count($result);
@@ -160,7 +163,7 @@ function thisted_event_import_not_mapped_organizer() {
     foreach ($result as $organizer_id) {
       $organisers[$organizer_id] = $organizer_id;
     }
-    drupal_set_message('You have ' . $amount_not_mapped_organizers . ' not mapped organizers.', 'warning');
+    drupal_set_message(t('You have not mapped organizers.'), 'warning');
   }
 
   return $organisers;

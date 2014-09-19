@@ -50,15 +50,15 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
     $xpathparser_key = $map_key + 1;
     switch ($map['target']) {
       case 'status':
-        $entity->status = ($item['xpathparser:' . $xpathparser_key]) ? 0 : 1;
+        $entity->status = ($item['xpathparser:' . $xpathparser_key] == 'False') ? 0 : 1;
         break;
 
       case 'field_ding_event_price':
         // Get only price, without text.
         $price_dirty = $item['xpathparser:' . $xpathparser_key];
         preg_match('~\d+~', $price_dirty, $price);
-        $price_clear = ($price) ? (int) $price[0] : 0;
-        $entity->field_ding_event_price['und'][0]['value'] = $price_clear;
+        $price_clear = (isset($price)) ? (int) $price[0] : 0;
+        $entity->field_ding_event_price[LANGUAGE_NONE][0]['value'] = $price_clear;
         break;
 
       case 'field_place2book_tickets':
