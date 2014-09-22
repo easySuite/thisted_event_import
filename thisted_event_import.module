@@ -50,7 +50,7 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
     $xpathparser_key = $map_key + 1;
     switch ($map['target']) {
       case 'status':
-        $entity->status = (strtolower($item['xpathparser:' . $xpathparser_key]) == 'false') ? 0 : 1;
+        $entity->status = (drupal_strtolower($item['xpathparser:' . $xpathparser_key]) == 'false') ? 0 : 1;
         break;
 
       case 'field_ding_event_price':
