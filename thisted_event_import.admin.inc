@@ -16,7 +16,7 @@ function thisted_event_import_admin_form($form, $form_state) {
 
   $rows = array();
   foreach ($mapped_libraries as $key => $val) {
-    $rows[$val->library_id] = array(
+    $rows[$val->organizer_id] = array(
       $val->organizer_id,
       $libraries[$val->library_id],
     );
@@ -94,6 +94,8 @@ function _thisted_event_import_add_mapping_submit($form, $form_state) {
     ))
     ->execute();
 
+  _update_event_library($mapping['organizer_id'], $mapping['library_id']);
+
   drupal_goto('admin/config/ting/events_import');
 }
 
@@ -102,15 +104,26 @@ function _thisted_event_import_add_mapping_submit($form, $form_state) {
  */
 function _thisted_event_import_delete_organizer_mapping($form, $form_state) {
   $selected_items = $form_state['input']['items'];
+
   foreach ($selected_items as $item) {
     if (isset($item)) {
-      db_delete('library_organizer')
-        ->condition('library_id', $item, '=')
-        ->execute();
+      // Remove OG from event.
+      $events_to_edit = db_select('event_organizer', 'eo')
+        ->fields('eo', array('event_nid'))
+        ->condition('eo.organizer_id', $item, '=')
+        ->execute()
+        ->fetchCol();
 
-      db_update('event_organizer')
-        ->fields(array('organizer_id' => NULL))
-        ->condition('organizer_id', '$item')
+      foreach ($events_to_edit as $enid) {
+        $event_node = node_load($enid);
+        if ($event_node) {
+          og_ungroup('node', $item, 'node', $enid);
+        }
+      }
+
+      // Remove mapping.
+      db_delete('library_organizer')
+        ->condition('organizer_id', $item, '=')
         ->execute();
     }
   }
@@ -167,4 +180,38 @@ function thisted_event_import_not_mapped_organizer() {
   }
 
   return $organisers;
+}
+
+/**
+ * Add OG for nodes on mapping.
+ *
+ * @param $organizer_id
+ *  id of organizer from import.
+ * @param $og_id
+ *  organic group id to which node will be added.
+ * @throws OgException
+ */
+function _update_event_library($organizer_id, $og_id) {
+  $events_to_update = db_select('event_organizer', 'eo')
+    ->fields('eo', array('event_nid'))
+    ->condition('eo.organizer_id', $organizer_id, '=')
+    ->execute()
+    ->fetchCol();
+
+  if (is_array($events_to_update) && !empty($events_to_update)) {
+    $events_updated = 0;
+    foreach ($events_to_update as $enid) {
+      $event_node = node_load($enid);
+      if ($event_node) {
+        $values = array(
+          'entity_type' => 'node',
+          'entity' => $event_node,
+          'field_name' => 'og_group_ref',
+        );
+        og_group('node', $og_id, $values);
+        $events_updated++;
+      }
+    }
+    drupal_set_message(t('@count events were updated.', array('@count' => $events_updated)));
+  }
 }
