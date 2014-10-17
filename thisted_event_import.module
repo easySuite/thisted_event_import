@@ -49,7 +49,23 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
   foreach ($source->importer->processor->config['mappings'] as $map_key => $map) {
     $xpathparser_key = $map_key + 1;
     switch ($map['target']) {
+      case 'title':
+        // Trim title.
+        $entity->title = trim($item['xpathparser:' . $xpathparser_key]);
+        break;
+
+      case 'field_ding_event_lead':
+        // Trim lead.
+        $entity->field_ding_event_lead[LANGUAGE_NONE][0]['value'] = trim($item['xpathparser:' . $xpathparser_key]);
+        break;
+
+      case 'field_ding_event_body':
+        //Trim body.
+        $entity->field_ding_event_body[LANGUAGE_NONE][0]['value'] = trim($item['xpathparser:' . $xpathparser_key]);
+        break;
+
       case 'status':
+        // Set node status.
         $entity->status = (drupal_strtolower($item['xpathparser:' . $xpathparser_key]) == 'false') ? 0 : 1;
         break;
 
@@ -71,6 +87,46 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
           $entity->place2book['maintain_copy'] = 0;
         }
         break;
+
+      case 'field_ding_event_date:start':
+        // Set proper start date.
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['timezone'] = 'Europe/Copenhagen';
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['timezone_db'] = 'Europe/Copenhagen';
+        unset($entity->field_ding_event_date[LANGUAGE_NONE][0]['date']);
+        $proper_date = thisted_event_import_date_format($item['xpathparser:' . $xpathparser_key]);
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = $proper_date;
+        break;
+
+      case 'field_ding_event_date:end':
+        // Set proper end date.
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['timezone'] = 'Europe/Copenhagen';
+        unset($entity->field_ding_event_date[LANGUAGE_NONE][0]['date2']);
+        $xpathparser_key2 = $xpathparser_key - 1;
+        $proper_date = thisted_event_import_date_format(
+          $item['xpathparser:' . $xpathparser_key2],
+          $item['xpathparser:' . $xpathparser_key]
+        );
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = $proper_date;
+        break;
+
+      case 'field_ding_event_location:name_line':
+        // Import location data.
+        $entity->field_ding_event_location[LANGUAGE_NONE][0] += array(
+          'country' => 'DK',
+          'administrative_area' => NULL,
+          'sub_administrative_area' => NULL,
+          'dependent_locality' => NULL,
+          'premise' => '',
+          'sub_premise' => NULL,
+          'organisation_name' => NULL,
+          'data' => NULL,
+        );
+        break;
+
+      case 'field_ding_event_list_image':
+        // Process attached pictures and files.
+        thisted_event_import_map_files($item['xpathparser:' . $xpathparser_key], $entity);
+        break;
     }
   }
 }
@@ -90,5 +146,65 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
           ->execute();
       }
     }
+  }
+}
+
+/**
+ * Prepare proper date and time.
+ */
+function thisted_event_import_date_format($date, $time = null) {
+  $time_zone = new DateTimeZone('Europe/Copenhagen');
+  $date_time = new DateTime($date, $time_zone);
+  if (isset($time)) {
+    $date = $date_time->format('Y-m-d');
+    $date = $date . ' ' . $time;
+    $date_time = new DateTime($date, new DateTimeZone('Europe/Copenhagen'));
+  }
+  $date_time->setTimezone($time_zone);
+  $proper_date_format = $date_time->format('Y-m-d H:i:s');
+
+  return $proper_date_format;
+}
+
+/**
+ * Attaches images and files to importing event.
+ * @param $xml_string string
+ *  contain all files of importing event.
+ * @param $entity object
+ *  in which files will be added.
+ */
+function thisted_event_import_map_files($xml_string, &$entity) {
+  $xml = new SimpleXMLElement($xml_string);
+
+  $image_count = 0;
+  foreach ($xml->file as $file) {
+    // If more than one image attache them as files.
+    if (filter_var($file->image, FILTER_VALIDATE_BOOLEAN) && $image_count == 0) {
+      $file_url = $file->path->__toString();
+      if (!empty($file_url)) {
+        $image = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
+        $entity->field_ding_event_list_image[LANGUAGE_NONE][0] = (array) $image;
+        $entity->field_ding_event_title_image[LANGUAGE_NONE][0] = (array) $image;
+      }
+      $image_count++;
+    }
+    else {
+      $file_url = $file->path->__toString();
+      if (!empty($file_url)) {
+        $attached_file = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
+        $attached_file = (array) $attached_file;
+        $attached_file['display'] = 1;
+        $entity->field_ding_event_files[LANGUAGE_NONE][] = $attached_file;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function thisted_event_import_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'ding_event_node_form') {
+    $form['#node']->field_ding_event_date[LANGUAGE_NONE][0]['timezone_db'] = 'Europe/Copenhagen';
   }
 }
