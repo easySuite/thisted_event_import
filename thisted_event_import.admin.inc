@@ -6,19 +6,19 @@
  * @see thisted_event_import_menu().
  */
 function thisted_event_import_admin_form($form, $form_state) {
-  $mapped_libraries = thisted_event_import_get_organizer_library();
+  $mapped_libraries = variable_get('mapped_libraries', array());
   $libraries = thisted_events_import_get_libraries();
 
   $header = array(
-    t('Organizer id'),
     t('Library'),
+    t('Url'),
   );
 
   $rows = array();
   foreach ($mapped_libraries as $key => $val) {
-    $rows[$val->organizer_id] = array(
-      $val->organizer_id,
-      $libraries[$val->library_id],
+    $rows[$key] = array(
+      $libraries[$key],
+      $val,
     );
   }
 
@@ -46,8 +46,7 @@ function thisted_event_import_admin_form($form, $form_state) {
  * @see thisted_event_import_menu().
  */
 function thisted_event_import_add_mapping($form, $form_state) {
-  $not_mapped_organizers = thisted_event_import_not_mapped_organizer();
-  $libraries = thisted_events_import_get_libraries();
+  $libraries = thisted_event_import_get_not_mapped_libraries();
 
   $form['add_organizer_mapping'] = array(
     '#type' => 'fieldset',
@@ -56,11 +55,11 @@ function thisted_event_import_add_mapping($form, $form_state) {
     '#collapsed' => TRUE,
   );
 
-  $form['add_organizer_mapping']['organizer_id'] = array(
-    '#type' => 'select',
-    '#title' => t('Organizer id'),
-    '#options' => $not_mapped_organizers,
-    '#description' => t('Select not mapped organizer id.'),
+  $form['add_organizer_mapping']['events_uri'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Uri to feed'),
+    '#description' => t('Feed uri which correspond to selected library. E.g. @uri_example', array('@uri_example' => 'http://www.thy360.dk/api/a6d6bbf4-336a-4705-be97-7abdaaaf06fb')),
+    '#required' => TRUE,
   );
 
   $form['add_organizer_mapping']['library_id'] = array(
@@ -68,6 +67,7 @@ function thisted_event_import_add_mapping($form, $form_state) {
     '#title' => t('Library id'),
     '#options' => $libraries,
     '#description' => t('Select library to which organizer id correspond.'),
+    '#required' => TRUE,
   );
 
   $form['add_organizer_mapping']['submit'] = array(
@@ -76,7 +76,20 @@ function thisted_event_import_add_mapping($form, $form_state) {
     '#submit' => array('_thisted_event_import_add_mapping_submit'),
   );
 
+  $form['#validate'] = array('_thisted_event_import_add_mapping_validate');
+
   return $form;
+}
+
+/**
+ * Validate function for mapping addition.
+ *
+ * @see thisted_event_import_add_mapping().
+ */
+function _thisted_event_import_add_mapping_validate($form, $form_state) {
+  if (!(valid_url($form_state['values']['events_uri'], TRUE))) {
+    form_set_error('events_uri', t('Invalid URI to events XML.'));
+  }
 }
 
 /**
@@ -85,16 +98,12 @@ function thisted_event_import_add_mapping($form, $form_state) {
  * @see thisted_event_import_add_mapping().
  */
 function _thisted_event_import_add_mapping_submit($form, $form_state) {
-  $mapping = $form_state['input'];
+  $values = $form_state['values'];
+  $mapped_libraries = variable_get('mapped_libraries', array());
 
-  db_insert('library_organizer')
-    ->fields(array(
-      'library_id' => $mapping['library_id'],
-      'organizer_id' => $mapping['organizer_id'],
-    ))
-    ->execute();
+  $mapped_libraries[$values['library_id']] = $values['events_uri'];
 
-  _update_event_library($mapping['organizer_id'], $mapping['library_id']);
+  variable_set('mapped_libraries', $mapped_libraries);
 
   drupal_goto('admin/config/ting/events_import');
 }
@@ -104,41 +113,13 @@ function _thisted_event_import_add_mapping_submit($form, $form_state) {
  */
 function _thisted_event_import_delete_organizer_mapping($form, $form_state) {
   $selected_items = $form_state['input']['items'];
-
-  foreach ($selected_items as $item) {
-    if (isset($item)) {
-      // Remove OG from event.
-      $events_to_edit = db_select('event_organizer', 'eo')
-        ->fields('eo', array('event_nid'))
-        ->condition('eo.organizer_id', $item, '=')
-        ->execute()
-        ->fetchCol();
-
-      foreach ($events_to_edit as $enid) {
-        $event_node = node_load($enid);
-        if ($event_node) {
-          og_ungroup('node', $item, 'node', $enid);
-        }
-      }
-
-      // Remove mapping.
-      db_delete('library_organizer')
-        ->condition('organizer_id', $item, '=')
-        ->execute();
+  $mapped_libraries = variable_get('mapped_libraries', array());
+  foreach ($selected_items as $key => $selected_item) {
+    if (!empty($selected_item)) {
+      unset($mapped_libraries[$key]);
     }
   }
-}
-
-/**
- * Get all mapped libraries.
- */
-function thisted_event_import_get_organizer_library() {
-  $result = db_select('library_organizer', 'lo')
-    ->fields('lo')
-    ->execute()
-    ->fetchAll();
-
-  return $result;
+  variable_set('mapped_libraries', $mapped_libraries);
 }
 
 /**
@@ -157,61 +138,16 @@ function thisted_events_import_get_libraries() {
 }
 
 /**
- * Get not mapped organizers.
- */
-function thisted_event_import_not_mapped_organizer() {
-  $query = db_select('event_organizer', 'eo');
-
-  $query->leftJoin('library_organizer', 'lo', 'lo.organizer_id = eo.organizer_id');
-  $query->fields('eo', array('organizer_id'))
-    ->distinct()
-    ->condition('lo.organizer_id', NULL, 'is');
-  $result = $query
-    ->execute()
-    ->fetchCol();
-
-  $organisers = array();
-  $amount_not_mapped_organizers = count($result);
-  if ($amount_not_mapped_organizers > 0) {
-    foreach ($result as $organizer_id) {
-      $organisers[$organizer_id] = $organizer_id;
-    }
-    drupal_set_message(t('You have @amount not mapped organizers.', array('@amount' => $amount_not_mapped_organizers)), 'warning');
-  }
-
-  return $organisers;
-}
-
-/**
- * Add OG for nodes on mapping.
+ * Get not mapped libraries.
  *
- * @param $organizer_id
- *  id of organizer from import.
- * @param $og_id
- *  organic group id to which node will be added.
- * @throws OgException
+ * @return array $not_mapped
+ *  key = id of library CT, value = library name.
  */
-function _update_event_library($organizer_id, $og_id) {
-  $events_to_update = db_select('event_organizer', 'eo')
-    ->fields('eo', array('event_nid'))
-    ->condition('eo.organizer_id', $organizer_id, '=')
-    ->execute()
-    ->fetchCol();
+function thisted_event_import_get_not_mapped_libraries() {
+  $all_libraries = thisted_events_import_get_libraries();
+  $mapped_libraries = variable_get('mapped_libraries', array());
 
-  if (is_array($events_to_update) && !empty($events_to_update)) {
-    $events_updated = 0;
-    foreach ($events_to_update as $enid) {
-      $event_node = node_load($enid);
-      if ($event_node) {
-        $values = array(
-          'entity_type' => 'node',
-          'entity' => $event_node,
-          'field_name' => 'og_group_ref',
-        );
-        og_group('node', $og_id, $values);
-        $events_updated++;
-      }
-    }
-    drupal_set_message(t('@count events were updated.', array('@count' => $events_updated)));
-  }
+  $not_mapped = array_diff_key($all_libraries, $mapped_libraries);
+
+  return $not_mapped;
 }
