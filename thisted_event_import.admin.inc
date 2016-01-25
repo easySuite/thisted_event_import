@@ -87,7 +87,7 @@ function thisted_event_import_add_mapping($form, $form_state) {
  * @see thisted_event_import_add_mapping().
  */
 function _thisted_event_import_add_mapping_validate($form, $form_state) {
-  if (!(valid_url($form_state['values']['events_uri'], TRUE))) {
+  if (!valid_url($form_state['values']['events_uri'], TRUE)) {
     form_set_error('events_uri', t('Invalid URI to events XML.'));
   }
 }
