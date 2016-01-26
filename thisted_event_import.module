@@ -136,14 +136,18 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
  */
 function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $item, $entity_id) {
   if ($entity->type == 'ding_event') {
-    foreach ($source->importer->processor->config['mappings'] as $key => $map) {
-      if ($map['target'] == 'field_organizer_id') {
-        $inserted = db_insert('event_organizer')
-          ->fields(array(
-            'event_nid' => $entity->nid,
-            'organizer_id' => $item[$map['source']],
-          ))
-          ->execute();
+    $feeds_config = $source->getConfig();
+    $feeds_source = $feeds_config['FeedsHTTPFetcher']['source'];
+    $mapped_libraries = variable_get('mapped_libraries', array());
+
+    foreach ($mapped_libraries as $library_id => $source_uri) {
+      if ($source_uri == $feeds_source) {
+        $values = array(
+          'entity_type' => 'node',
+          'entity' => $entity,
+          'field_name' => 'og_group_ref',
+        );
+        og_group('node', $library_id, $values);
       }
     }
   }
@@ -154,7 +158,8 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
  */
 function thisted_event_import_date_format($date, $time = null) {
   $time_zone = new DateTimeZone('Europe/Copenhagen');
-  $date_time = new DateTime($date, $time_zone);
+  $date_time = DateTime::createFromFormat("d/m/Y H:i:s", $date, $time_zone);
+
   if (isset($time)) {
     $date = $date_time->format('Y-m-d');
     $date = $date . ' ' . $time;
@@ -204,7 +209,7 @@ function thisted_event_import_map_files($xml_string, &$entity) {
  * Implements hook_form_alter().
  */
 function thisted_event_import_form_alter(&$form, &$form_state, $form_id) {
-  if ($form_id == 'ding_event_node_form') {
+  if ('ding_event_node_form' == $form_id) {
     $form['#node']->field_ding_event_date[LANGUAGE_NONE][0]['timezone_db'] = 'Europe/Copenhagen';
   }
 }

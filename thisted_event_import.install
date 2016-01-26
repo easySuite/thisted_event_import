@@ -5,43 +5,17 @@
  */
 
 /**
- * Implements hook_schema().
+ * Implements hook_update_N().
  */
-function thisted_event_import_schema() {
-  $schema['event_organizer'] = array(
-    'description' => st('On event import will be saved event nid with corresponding organizer id.'),
-    'fields' => array(
-      'event_nid' => array(
-        'description' => t('Event node id.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'organizer_id' => array(
-        'description' => t('Organizer id.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => FALSE,
-      ),
-    ),
-  );
-  $schema['library_organizer'] = array(
-    'description' => st('Mapping of library with organizer id.'),
-    'fields' => array(
-      'library_id' => array(
-        'description' => t('Library id.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-      'organizer_id' => array(
-        'description' => t('Organizer id.'),
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-      ),
-    ),
+function thisted_event_import_update_7100() {
+  $db_tables = array(
+    'event_organizer',
+    'library_organizer',
   );
 
-  return $schema;
+  foreach ($db_tables as $db_table) {
+    if (db_table_exists($db_table)) {
+      db_drop_table($db_table);
+    }
+  }
 }
