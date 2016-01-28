@@ -72,8 +72,8 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
       case 'field_ding_event_price':
         // Get only price, without text.
         $price_dirty = $item['xpathparser:' . $xpathparser_key];
-        preg_match('~\d+~', $price_dirty, $price);
-        $price_clear = (isset($price[0])) ? (int) $price[0] : 0;
+        preg_match_all('~\d+~', $price_dirty, $price);
+        $price_clear = (isset($price[0])) ? (int) min($price[0]) : 0;
         $entity->field_ding_event_price[LANGUAGE_NONE][0]['value'] = $price_clear;
         break;
 
@@ -136,6 +136,7 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
  */
 function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $item, $entity_id) {
   if ($entity->type == 'ding_event') {
+    $entity->status = 1;
     $feeds_config = $source->getConfig();
     $feeds_source = $feeds_config['FeedsHTTPFetcher']['source'];
     $mapped_libraries = variable_get('mapped_libraries', array());
@@ -150,6 +151,8 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
         og_group('node', $library_id, $values);
       }
     }
+
+    node_save($entity);
   }
 }
 
