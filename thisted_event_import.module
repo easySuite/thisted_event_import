@@ -154,7 +154,7 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
  */
 function thisted_event_import_date_format($date) {
   $date_time = DateTime::createFromFormat("d/m/Y H:i:s", $date, new DateTimeZone('Europe/Copenhagen'));
-  $date_time->setTimezone('Europe/London');
+  $date_time->sub(new DateInterval('PT1H'));
   $proper_date_format = $date_time->format('Y-m-d H:i:s');
 
   return $proper_date_format;
