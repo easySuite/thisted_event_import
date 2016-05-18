@@ -5,6 +5,42 @@
  */
 
 /**
+ * Implements hook_schema().
+ */
+function thisted_schema() {
+  $schema['thisted_event_dates'] = array(
+    'description' => 'Contains event dates, which was imported from remote service.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'Id of event (reference to nid field form node table).',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'date_id' => array(
+        'description' => 'The primary identifier of event of remote service.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'price' => array(
+        'description' => 'The primary identifier of event of remote service.',
+        'type' => 'varchar',
+        'length' => 128,
+        'default' =>  NULL,
+      ),
+    ),
+    'unique keys' => array(
+      'uk_nid_id' => array('date_id', 'nid'),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
+}
+
+/**
  * Implements hook_update_N().
  */
 function thisted_event_import_update_7100() {
@@ -18,4 +54,12 @@ function thisted_event_import_update_7100() {
       db_drop_table($db_table);
     }
   }
+}
+
+/**
+ * Adds custom table for storing additional nodes which was created during import.
+ */
+function thisted_event_import_update_7101() {
+  $schema = drupal_get_schema('thisted_event_dates');
+  db_create_table('thisted_event_dates',  $schema);
 }
