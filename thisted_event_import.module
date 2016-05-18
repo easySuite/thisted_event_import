@@ -177,8 +177,13 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
         $end = $parts[0] . ' ' . $date['endtime'] . ':00';
         $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
       }
+
       if (isset($nids[$date['id']])) {
         $new_entity->nid = $nids[$date['id']];
+      }
+      else {
+        unset($new_entity->nid);
+        unset($new_entity->vid);
       }
 
       if (!$is_main) {
