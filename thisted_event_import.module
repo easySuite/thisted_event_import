@@ -43,11 +43,11 @@ function thisted_event_import_feeds_after_parse(FeedsSource $source, FeedsParser
 }
 
 /**
- * Implements hook_feeds_after_save().
+ * Implements hook_feeds_presave().
  */
-function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $item, $entity_id) {
+function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item) {
   if ($entity->type == 'ding_event') {
-    $entity = node_load($entity->nid);
+    $url = $price = $dates = $new_entity = NULL;
     foreach ($source->importer->processor->config['mappings'] as $map_key => $map) {
       $xpathparser_key = $map_key + 1;
       switch ($map['target']) {
@@ -71,35 +71,40 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
           $entity->status = (drupal_strtolower($item['xpathparser:' . $xpathparser_key]) == 'false') ? 0 : 1;
           break;
 
+        case 'url':
+          $url = isset($item[$map['source']]) ? $item[$map['source']] : NULL;
+          break;
+
         case 'field_ding_event_price':
           // Get only price, without text.
           $price_dirty = $item['xpathparser:' . $xpathparser_key];
-          preg_match_all('~\d+~', $price_dirty, $price);
-          $price_clear = (isset($price[0])) ? (int) min($price[0]) : 0;
-          $entity->field_ding_event_price[LANGUAGE_NONE][0]['value'] = $price_clear;
+          preg_match_all('/\d+/', $price_dirty, $matches);
+          if (is_array($matches[0])) {
+            $price_clear = is_array($matches[0]) ? (int) min($matches[0]) : 0;
+            $entity->field_ding_event_price[LANGUAGE_NONE][0]['value'] = $price_clear;
+            $max = (int) max($matches[0]);
+            if ($price_clear != $max) {
+              $price = $price_clear . ' - ' . $max;
+            }
+          }
           break;
 
         case 'field_place2book_tickets':
-          // push event to place2book.
-          if ($item['xpathparser:' . $xpathparser_key]) {
-            $entity->place2book['maintain_copy'] = 1;
-            $entity->place2book['kultunaut_export'] = 0;
-            $entity->place2book['passive'] = 0;
-            $entity->capacity = 0;
-            $entity->place2book['maintain_copy'] = 0;
+          if (module_exists('ding_place2book')) {
+            // push event to place2book.
+            if ($item['xpathparser:' . $xpathparser_key]) {
+              $entity->place2book['maintain_copy'] = 1;
+              $entity->place2book['kultunaut_export'] = 0;
+              $entity->place2book['passive'] = 0;
+              $entity->capacity = 0;
+              $entity->place2book['maintain_copy'] = 0;
+            }
           }
           break;
 
         case 'field_ding_event_date:start':
           // Set proper start date.
-          $proper_date = thisted_event_import_date_format($item['xpathparser:' . $xpathparser_key]);
-          $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = $proper_date;
-          break;
-
-        case 'field_ding_event_date:end':
-          // Set proper end date.
-          $proper_date = thisted_event_import_date_format($item['xpathparser:' . $xpathparser_key]);
-          $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = $proper_date;
+          $dates = thisted_event_import_date($item['xpathparser:' . $xpathparser_key]);
           break;
 
         case 'field_ding_event_location:name_line':
@@ -131,11 +136,18 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
     $entity->field_ding_event_date[LANGUAGE_NONE][0]['timezone'] = 'Europe/Copenhagen';
     $entity->field_ding_event_date[LANGUAGE_NONE][0]['timezone_db'] = 'Europe/Copenhagen';
     $entity->field_ding_event_date[LANGUAGE_NONE][0]['date_type'] = 'datetime';
-    node_save($entity);
+
+    if ($url) {
+      $entity->field_ding_event_body[LANGUAGE_NONE][0]['value'] .= '<p>
+        <a href="' . $url . '">' . t('See more') . '</a>
+      </p>';
+    }
 
     $feeds_config = $source->getConfig();
     $feeds_source = $feeds_config['FeedsHTTPFetcher']['source'];
     $mapped_libraries = variable_get('mapped_libraries', array());
+    $values = NULL;
+    $lib_id = NULL;
     foreach ($mapped_libraries as $library_id => $source_uri) {
       if ($source_uri == $feeds_source) {
         $values = array(
@@ -143,7 +155,47 @@ function thisted_event_import_feeds_after_save(FeedsSource $source, $entity, $it
           'entity' => $entity,
           'field_name' => 'og_group_ref',
         );
+        $lib_id = $library_id;
         og_group('node', $library_id, $values);
+      }
+    }
+
+    $ids = array_map(function ($i) {
+      return $i['id'];
+    }, $dates);
+    $nids = db_select('thisted_event_dates', 't')
+      ->fields('t', array('date_id', 'nid'))
+      ->condition('t.date_id', $ids, 'IN')
+      ->execute()
+      ->fetchAllKeyed();
+    foreach ($dates as $date) {
+      $is_main = $date == reset($dates);
+      $new_entity = $is_main ? $entity : clone $entity;
+      $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date['date']);
+      if (!empty($date['endtime'])) {
+        $parts = explode(' ', $date['date']);
+        $end = $parts[0] . ' ' . $date['endtime'] . ':00';
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
+      }
+      if (isset($nids[$date['id']])) {
+        $new_entity->nid = $nids[$date['id']];
+      }
+
+      if (!$is_main) {
+        node_save($new_entity);
+        db_merge('thisted_event_dates')
+          ->key(array('nid' => $new_entity->nid))
+          ->fields(array(
+            'date_id' => $date['id'],
+            'nid' => $new_entity->nid,
+            'price' => $price,
+          ))
+          ->execute();
+        $new_entity = null;
+      }
+      if (!empty($lib_id)) {
+        $values['entity'] = $new_entity;
+        og_group('node', $lib_id, $values);
       }
     }
   }
@@ -195,10 +247,58 @@ function thisted_event_import_map_files($xml_string, &$entity) {
 }
 
 /**
+ * Parse xml and gets dates.
+ *
+ * @param $xml_string string
+ *  contain all dates ofevent.
+ *
+ * @return array
+ *  Return array with
+ */
+function thisted_event_import_date($xml_string) {
+  $xml = new SimpleXMLElement($xml_string);
+  $dates = array();
+  foreach ($xml->date as $date) {
+    $dates[] = array(
+      'id' => (string) $date->id,
+      'date' => (string) $date->date,
+      'time' => (string) $date->time,
+      'endtime' => (string) $date->endtime,
+    );
+  }
+  return $dates;
+}
+
+/**
  * Implements hook_form_alter().
  */
 function thisted_event_import_form_alter(&$form, &$form_state, $form_id) {
   if ('ding_event_node_form' == $form_id) {
     $form['#node']->field_ding_event_date[LANGUAGE_NONE][0]['timezone_db'] = 'Europe/Copenhagen';
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function thisted_event_import_node_delete($node) {
+  db_delete('thisted_event_dates')
+    ->condition('nid', $node->nid)
+    ->execute();
+}
+
+/**
+ * Implements hook_node_view_alter().
+ */
+function thisted_event_import_node_view_alter(&$build) {
+  if ($build['#entity_type'] == 'node' && $build['#bundle'] == 'ding_event') {
+    $price = db_select('thisted_event_dates', 't')
+      ->fields('t', array('price'))
+      ->condition('t.nid', $build['field_place2book']['#object']->nid)
+      ->execute()
+      ->fetchField();
+    if ($price) {
+      $build['place2book_event_prices'] = "<p><i class='icon-tag'></i>{$price} kr.</p>";
+    }
   }
 }
