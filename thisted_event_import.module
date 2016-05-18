@@ -183,21 +183,21 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
       }
       else {
         unset($new_entity->nid);
-        unset($new_entity->vid);
       }
+      unset($new_entity->vid);
 
-      if (!$is_main) {
-        node_save($new_entity);
-        db_merge('thisted_event_dates')
-          ->key(array('nid' => $new_entity->nid))
-          ->fields(array(
-            'date_id' => $date['id'],
-            'nid' => $new_entity->nid,
-            'price' => $price,
-          ))
-          ->execute();
-        $new_entity = null;
-      }
+      node_save($new_entity);
+
+      db_merge('thisted_event_dates')
+        ->key(array('nid' => $new_entity->nid))
+        ->fields(array(
+          'date_id' => $date['id'],
+          'nid' => $new_entity->nid,
+          'price' => $price,
+        ))
+        ->execute();
+
+      $new_entity = null;
       if (!empty($lib_id)) {
         $values['entity'] = $new_entity;
         og_group('node', $lib_id, $values);
@@ -299,11 +299,11 @@ function thisted_event_import_node_view_alter(&$build) {
   if ($build['#entity_type'] == 'node' && $build['#bundle'] == 'ding_event') {
     $price = db_select('thisted_event_dates', 't')
       ->fields('t', array('price'))
-      ->condition('t.nid', $build['field_place2book']['#object']->nid)
+      ->condition('t.nid', $build['#node']->nid)
       ->execute()
       ->fetchField();
     if ($price) {
-      $build['place2book_event_prices'] = "<p><i class='icon-tag'></i>{$price} kr.</p>";
+      $build['field_ding_event_price'] = "<p><i class='icon-tag'></i>{$price} kr.</p>";
     }
   }
 }
