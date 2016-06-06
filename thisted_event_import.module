@@ -284,6 +284,7 @@ function thisted_event_import_map_files($xml_string, &$entity) {
           $entity->field_ding_event_files[LANGUAGE_NONE][] = $attached_file;
         }
       }
+      $ids[] = $file->fileid;
     }
   }
 }

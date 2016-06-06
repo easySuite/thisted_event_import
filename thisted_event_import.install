@@ -28,7 +28,7 @@ function thisted_event_import_schema() {
         'description' => 'The primary identifier of event of remote service.',
         'type' => 'varchar',
         'length' => 128,
-        'default' =>  NULL,
+        'default' => NULL,
       ),
     ),
     'unique keys' => array(
@@ -61,5 +61,5 @@ function thisted_event_import_update_7100() {
  */
 function thisted_event_import_update_7101() {
   $schema = drupal_get_schema('thisted_event_dates', TRUE);
-  db_create_table('thisted_event_dates',  $schema);
+  db_create_table('thisted_event_dates', $schema);
 }
