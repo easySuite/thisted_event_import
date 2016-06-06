@@ -7,7 +7,7 @@
 /**
  * Implements hook_schema().
  */
-function thisted_schema() {
+function thisted_event_import_schema() {
   $schema['thisted_event_dates'] = array(
     'description' => 'Contains event dates, which was imported from remote service.',
     'fields' => array(
@@ -60,6 +60,6 @@ function thisted_event_import_update_7100() {
  * Adds custom table for storing additional nodes which was created during import.
  */
 function thisted_event_import_update_7101() {
-  $schema = drupal_get_schema('thisted_event_dates');
+  $schema = drupal_get_schema('thisted_event_dates', TRUE);
   db_create_table('thisted_event_dates',  $schema);
 }
