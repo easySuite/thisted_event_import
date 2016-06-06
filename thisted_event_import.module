@@ -225,27 +225,64 @@ function thisted_event_import_date_format($date) {
  *  in which files will be added.
  */
 function thisted_event_import_map_files($xml_string, &$entity) {
-  $xml = new SimpleXMLElement($xml_string);
+  $ids = array();
+  foreach ($entity->field_ding_event_list_image[LANGUAGE_NONE] as $item) {
+    $path = drupal_realpath($item['uri']);
+    $info = pathinfo($path);
+    $parts = explode('___', $info['filename']);
+    if (isset($parts[1])) {
+      $ids[] = $parts[1];
+    }
+  }
 
+  foreach ($entity->field_ding_event_title_image[LANGUAGE_NONE] as $item) {
+    $path = drupal_realpath($item['uri']);
+    $info = pathinfo($path);
+    $parts = explode('___', $info['filename']);
+    if (isset($parts[1])) {
+      $ids[] = $parts[1];
+    }
+  }
+
+  foreach ($entity->field_ding_event_files[LANGUAGE_NONE] as $item) {
+    $path = drupal_realpath($item['uri']);
+    $info = pathinfo($path);
+    $parts = explode('___', $info['filename']);
+    if (isset($parts[1])) {
+      $ids[] = $parts[1];
+    }
+  }
+
+  $xml = new SimpleXMLElement($xml_string);
   $image_count = 0;
   foreach ($xml->file as $file) {
-    // If more than one image attache them as files.
-    if (filter_var($file->image, FILTER_VALIDATE_BOOLEAN) && $image_count == 0) {
-      $file_url = $file->path->__toString();
-      if (!empty($file_url)) {
-        $image = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
-        $entity->field_ding_event_list_image[LANGUAGE_NONE][0] = (array) $image;
-        $entity->field_ding_event_title_image[LANGUAGE_NONE][0] = (array) $image;
+    if (!in_array($file->fileid, $ids)) {
+      // If more than one image attache them as files.
+      if (filter_var($file->image, FILTER_VALIDATE_BOOLEAN) && $image_count == 0) {
+        $file_url = $file->path->__toString();
+        if (!empty($file_url)) {
+          $image = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
+          $path = drupal_realpath($image->uri);
+          $info = pathinfo($path);
+          $dest = 'public://' . $info['filename'] . '___' . $file->fileid . '.' . $info['extension'];
+          file_move($image, $dest);
+          $entity->field_ding_event_list_image[LANGUAGE_NONE][0] = (array) $image;
+          $entity->field_ding_event_title_image[LANGUAGE_NONE][0] = (array) $image;
+        }
+        $image_count++;
       }
-      $image_count++;
-    }
-    else {
-      $file_url = $file->path->__toString();
-      if (!empty($file_url)) {
-        $attached_file = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
-        $attached_file = (array) $attached_file;
-        $attached_file['display'] = 1;
-        $entity->field_ding_event_files[LANGUAGE_NONE][] = $attached_file;
+      else {
+        $file_url = $file->path->__toString();
+        if (!empty($file_url)) {
+          $attached_file = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
+          $path = drupal_realpath($attached_file->uri);
+          $info = pathinfo($path);
+          $dest = 'public://' . $info['filename'] . '___' . $file->fileid . '.' . $info['extension'];
+          file_move($attached_file, $dest);
+          $attached_file = (array) $attached_file;
+          $attached_file['display'] = 1;
+          $entity->field_ding_event_files[LANGUAGE_NONE][] = $attached_file;
+        }
       }
     }
   }
