@@ -229,34 +229,35 @@ function thisted_event_import_map_files($xml_string, &$entity) {
   foreach ($entity->field_ding_event_list_image[LANGUAGE_NONE] as $item) {
     $path = drupal_realpath($item['uri']);
     $info = pathinfo($path);
-    $parts = explode('___', $info['filename']);
-    if (isset($parts[1])) {
-      $ids[] = $parts[1];
+    preg_match('/\[fid:(\d+)\]/', $info['filename'], $matches);
+    if (isset($matches[1])) {
+      $ids[] = $matches[1];
     }
   }
 
   foreach ($entity->field_ding_event_title_image[LANGUAGE_NONE] as $item) {
     $path = drupal_realpath($item['uri']);
     $info = pathinfo($path);
-    $parts = explode('___', $info['filename']);
-    if (isset($parts[1])) {
-      $ids[] = $parts[1];
+    preg_match('/\[fid:(\d+)\]/', $info['filename'], $matches);
+    if (isset($matches[1])) {
+      $ids[] = $matches[1];
     }
   }
 
   foreach ($entity->field_ding_event_files[LANGUAGE_NONE] as $item) {
     $path = drupal_realpath($item['uri']);
     $info = pathinfo($path);
-    $parts = explode('___', $info['filename']);
-    if (isset($parts[1])) {
-      $ids[] = $parts[1];
+    preg_match('/\[fid:(\d+)\]/', $info['filename'], $matches);
+    if (isset($matches[1])) {
+      $ids[] = $matches[1];
     }
   }
 
   $xml = new SimpleXMLElement($xml_string);
   $image_count = 0;
   foreach ($xml->file as $file) {
-    if (!in_array($file->fileid, $ids)) {
+    $fileid = $file->fileid->__toString();
+    if (!in_array($fileid, $ids)) {
       // If more than one image attache them as files.
       if (filter_var($file->image, FILTER_VALIDATE_BOOLEAN) && $image_count == 0) {
         $file_url = $file->path->__toString();
@@ -264,7 +265,7 @@ function thisted_event_import_map_files($xml_string, &$entity) {
           $image = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
           $path = drupal_realpath($image->uri);
           $info = pathinfo($path);
-          $dest = 'public://' . $info['filename'] . '___' . $file->fileid . '.' . $info['extension'];
+          $dest = 'public://' . $info['filename'] . '[fid:' . $fileid . '].' . $info['extension'];
           file_move($image, $dest);
           $entity->field_ding_event_list_image[LANGUAGE_NONE][0] = (array) $image;
           $entity->field_ding_event_title_image[LANGUAGE_NONE][0] = (array) $image;
@@ -277,14 +278,14 @@ function thisted_event_import_map_files($xml_string, &$entity) {
           $attached_file = system_retrieve_file($file_url, NULL, TRUE, FILE_EXISTS_REPLACE);
           $path = drupal_realpath($attached_file->uri);
           $info = pathinfo($path);
-          $dest = 'public://' . $info['filename'] . '___' . $file->fileid . '.' . $info['extension'];
+          $dest = 'public://' . $info['filename'] . '[fid:' . $fileid . '].' . $info['extension'];
           file_move($attached_file, $dest);
           $attached_file = (array) $attached_file;
           $attached_file['display'] = 1;
           $entity->field_ding_event_files[LANGUAGE_NONE][] = $attached_file;
         }
       }
-      $ids[] = $file->fileid;
+      $ids[] = $fileid;
     }
   }
 }
