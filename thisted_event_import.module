@@ -169,13 +169,13 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
       ->execute()
       ->fetchAllKeyed();
     foreach ($dates as $date) {
-      $is_main = $date == reset($dates);
+      $is_main = key($dates) == 0;
       $new_entity = $is_main ? $entity : clone $entity;
-      $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date['date']);
+      $new_entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date['date']);
       if (!empty($date['endtime'])) {
         $parts = explode(' ', $date['date']);
         $end = $parts[0] . ' ' . $date['endtime'] . ':00';
-        $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
+        $new_entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
       }
 
       if (isset($nids[$date['id']])) {
