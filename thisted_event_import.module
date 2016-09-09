@@ -43,6 +43,32 @@ function thisted_event_import_feeds_after_parse(FeedsSource $source, FeedsParser
 }
 
 /**
+ * Implements hook_feeds_before_update().
+ */
+//function thisted_event_import_feeds_before_update(FeedsSource $source, $item, $entity_id) {
+//  $dates = thisted_event_import_date($item['xpathparser:5']);
+//
+//  foreach ($dates as $date) {
+//    $ids = array_map(function ($i) {
+//      return $i['id'];
+//    }, $dates);
+//    $nids = db_select('thisted_event_dates', 't')
+//      ->fields('t', array('date_id', 'nid'))
+//      ->condition('t.date_id', $ids, 'IN')
+//      ->execute()
+//      ->fetchAllKeyed();
+//
+//    if ($nids[$date['id']] == $entity_id) {
+//      $item['xpathparser:12'] = $date['uniqueid'];
+//    }
+//  }
+//}
+
+function thisted_event_import_feeds_parser_sources_alter(&$sources, $content_type) {
+  $a =1;
+}
+
+/**
  * Implements hook_feeds_presave().
  */
 function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item) {
@@ -107,6 +133,12 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
           $dates = thisted_event_import_date($item['xpathparser:' . $xpathparser_key]);
           break;
 
+//        case 'guid':
+////          var_dump($item['xpathparser:' . $xpathparser_key]);
+//            $entity->feeds_item->guid = $item['xpathparser:'  . $xpathparser_key];
+//////          $entity->feeds_item->guid = $entity->id;
+//          break;
+
         case 'field_ding_event_location:name_line':
           // Import location data.
           $entity->field_ding_event_location[LANGUAGE_NONE][0] += array(
@@ -168,10 +200,15 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
       ->condition('t.date_id', $ids, 'IN')
       ->execute()
       ->fetchAllKeyed();
-    foreach ($dates as $date) {
-      $is_main = key($dates) == 0;
+    foreach ($dates as $key => $date) {
+      $is_main = key($key) == 0;
+
       $new_entity = $is_main ? $entity : clone $entity;
       $new_entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date['date']);
+
+      $new_entity->feeds_item->guid = $date['uniqueid'];
+      $new_entity->feeds_item->hash = md5($new_entity->feeds_item->guid);
+
       if (!empty($date['endtime'])) {
         $parts = explode(' ', $date['date']);
         $end = $parts[0] . ' ' . $date['endtime'] . ':00';
@@ -308,6 +345,7 @@ function thisted_event_import_date($xml_string) {
       'date' => (string) $date->date,
       'time' => (string) $date->time,
       'endtime' => (string) $date->endtime,
+      'uniqueid' => (string) $date->uniqueid,
     );
   }
   return $dates;
