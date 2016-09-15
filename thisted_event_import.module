@@ -112,6 +112,7 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
       </p>';
     }
 
+    // Map imported content to mapped library.
     $feeds_config = $source->getConfig();
     $feeds_source = $feeds_config['FeedsHTTPFetcher']['source'];
     $mapped_libraries = variable_get('mapped_libraries', array());
@@ -120,20 +121,11 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
 
     foreach ($mapped_libraries as $library_id => $source_uri) {
       if ($source_uri == $feeds_source) {
-        $values = array(
-          'entity_type' => 'node',
-          'entity' => $entity,
-          'field_name' => 'og_group_ref',
-        );
-        $lib_id = $library_id;
-        og_group('node', $library_id, $values);
+        $entity->og_group_ref[LANGUAGE_NONE][0]['target_id'] = $library_id;
       }
     }
 
-    if (!empty($lib_id)) {
-      $values['entity'] = $entity;
-      og_group('node', $lib_id, $values);
-    }
+    node_save($entity);
 
     db_merge('thisted_event_dates')
       ->key(array('nid' => $entity->nid))
@@ -289,7 +281,7 @@ function thisted_event_import_node_view_alter(&$build) {
       ->execute()
       ->fetchField();
     if ($price) {
-      $build['field_ding_event_price'] = "<p><i class='icon-tag'></i>{$price} kr.</p>";
+      $build['field_ding_event_price'][0]['#markup'] = "{$price} kr.";
     }
   }
 }
