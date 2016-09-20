@@ -65,7 +65,7 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
     // Get only price, without text.
     $price_dirty = $item['xpathparser:4'];
     preg_match_all('/\d+/', $price_dirty, $matches);
-    if (is_array($matches[0])) {
+    if (is_array($matches[0]) && count($matches[0]) == 1) {
       $price_clear = is_array($matches[0]) ? (int) min($matches[0]) : 0;
       $entity->field_ding_event_price[LANGUAGE_NONE][0]['value'] = $price_clear;
       $max = (int) max($matches[0]);
