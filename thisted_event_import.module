@@ -36,7 +36,7 @@ function thisted_event_import_menu() {
  */
 function thisted_event_import_feeds_after_parse(FeedsSource $source, FeedsParserResult $result) {
   foreach ($result->items as $key => $value) {
-    if ($value['xpathparser:15'] === 'true') {
+    if (!empty($value['xpathparser:15']) && $value['xpathparser:15'] === 'true') {
       unset($result->items[$key]);
     }
   }
@@ -46,7 +46,7 @@ function thisted_event_import_feeds_after_parse(FeedsSource $source, FeedsParser
  * Implements hook_feeds_presave().
  */
 function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item) {
-  if ($entity->type == 'ding_event') {
+  if ($entity->type == 'ding_event' && $source->id == 'thisted') {
 
     // Trim title.
     $entity->title = trim($item['xpathparser:1']);
@@ -76,14 +76,18 @@ function thisted_event_import_feeds_presave(FeedsSource $source, $entity, $item)
 
     // Set proper start date.
     $date_start = $item['xpathparser:5'];
-    $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date_start);
+    if (!empty($date_start)) {
+      $entity->field_ding_event_date[LANGUAGE_NONE][0]['value'] = thisted_event_import_date_format($date_start);
+    }
 
     // Set proper end date, if exist.
     $date_end = $item['xpathparser:6'];
     if (!empty($date_end)) {
       $parts = explode(' ', $date_start);
       $end = $parts[0] . ' ' . $date_end . ':00';
-      $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
+      if (!empty($end)) {
+        $entity->field_ding_event_date[LANGUAGE_NONE][0]['value2'] = thisted_event_import_date_format($end);
+      }
     }
 
     // Import location data.
