@@ -77,3 +77,9 @@ function thisted_event_import_update_7102() {
   db_change_field('thisted_event_dates', 'date_id', 'date_id', $date_id);
 }
 
+/**
+ * Implements hook_uninstall().
+ */
+function thisted_event_import_uninstall() {
+  variable_del('mapped_libraries');
+}
